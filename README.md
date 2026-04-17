@@ -2,53 +2,72 @@
 
 A privacy-preserving AI system prototype that continuously models user security state, predicts likely breach scenarios, and delivers adaptive, personalized interventions.
 
+> [!NOTE]
+> This repository is actively maintained and will be continuously updated over time with more advanced monitoring capabilities, model refinements, and UI enhancements.
+
 ## What is implemented
 
-This repository contains a fully local research prototype with:
+This repository contains a production-ready research prototype with:
 
-- A dynamic security state model `S_t = f(S_(t-1), B_t, E_t, C_t)`
-- A Cyber Risk Score derived from `P(breach_t) = sigmoid(w · S_t)`
-- Cumulative interval risk over a forward monitoring window
-- Canonical attack scenario probabilities
-- An intervention engine that prioritizes high-impact mitigations
-- A synthetic time-series dataset generator with no PII
-- A lightweight dashboard for inspecting risk evolution and explanations
+- **Python Backend (FastAPI)**: High-performance API with persistent SQLite storage.
+- **React Frontend (Vite + TS)**: Modern, component-driven dashboard with real-time state hydration.
+- **Active Scanning**: Local vulnerability scanner for ports and file system permissions.
+- **Predictive Modeling**: Dynamic security state model `S_t = f(S_(t-1), B_t, E_t, C_t)`.
+- **Intelligent Guidance**: Adaptive security best practices based on real-time risk posture.
+- **Narrative Engine**: Automated risk explanation and scenario forecasting.
 
-## Project structure
+## Project Structure
 
-- `server.js`: local HTTP server and API endpoints
-- `src/engine.js`: risk model, scenario engine, explanations, interventions
-- `src/simulation.js`: synthetic profile generation and time-series simulation
-- `public/`: dashboard UI
+- `backend/`: FastAPI application, SQL models, and scanning logic.
+    - `main.py`: API entry point and logic orchestration.
+    - `engine.py`: Mathematical risk scoring and scenario modeling.
+    - `scanner.py`: Local telemetry and vulnerability scanning.
+    - `database.py`: SQLAlchemy configuration.
+- `frontend/`: React + TypeScript dashboard.
+    - `src/App.tsx`: Core UI logic and data visualization.
+    - `src/index.css`: Custom Swiss-minimalist styling.
 
-## Run
+## Getting Started
 
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- [uv](https://github.com/astral-sh/uv) (Recommended for Python)
+
+### Running the Backend
 ```bash
-npm start
+cd backend
+uv run uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Then open `http://localhost:3000`.
+### Running the Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Open [http://localhost:5173](http://localhost:5173).
 
-## API
+## Core Functionalities
 
-- `GET /api/profiles`: available simulated user profiles
-- `GET /api/dashboard?profile=<id>&tick=<n>`: full dashboard state for a profile at a time step
-- `GET /api/dataset`: full synthetic dataset for research/export workflows
+### 1. Persistent Monitoring
+The system tracks security state transitions over time. Every "tick" represents a snapshot of the user's posture, reflecting events such as MFA enrollment, password reuse, or system patches.
 
-## Modeling notes
+### 2. Local Vulnerability Scanning
+The built-in scanner performs non-invasive checks for:
+- **Exposed Services**: Identifies common risky open ports on localhost.
+- **Configuration Weaknesses**: Audits permissions for sensitive files (e.g., SSH keys, bash history).
+
+### 3. Adaptive Intervention & Guidance
+Instead of static warnings, the system provides:
+- **Targeted Recommendations**: High-impact actions to reduce the probability of specific scenarios.
+- **Security Guidance**: Contextual advice (e.g., "Rotate reused passwords") linked to the current risk score.
+
+## Modeling Notes
 
 The prototype keeps the implementation interpretable on purpose:
+- State features remain explicit and bounded in `[0, 1]`.
+- Risk explanations are exposed as weighted feature-level contributions.
+- Scenario generation uses per-scenario logistic models.
 
-- State features remain explicit and bounded in `[0, 1]`
-- Protective controls such as MFA and backup readiness reduce risk
-- Risk explanations are exposed as feature-level weighted contributions
-- Scenario generation uses per-scenario logistic models instead of opaque black boxes
-
-This makes the system suitable for open research, simulation, and later replacement with more advanced models.
-
-## Next extensions
-
-- Replace synthetic events with privacy-preserving local telemetry adapters
-- Add offline evaluation against generated attack outcomes
-- Introduce model comparison endpoints for logistic, tree-based, and LLM-assisted reasoning
-- Connect recommendation delivery to A/B-tested behavior interventions
+This makes the system suitable for open research, behavioral science experiments, and later replacement with more advanced ML models.
