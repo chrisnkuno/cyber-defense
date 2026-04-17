@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dynamic Cyber Risk Monitor</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Privacy-preserving adaptive cyber risk prototype</p>
+        <h1>Continuous user-state modeling for preventive security intervention.</h1>
+        <p class="lede">
+          A local research prototype that simulates evolving user security posture, projects breach likelihood,
+          and turns that forecast into interpretable, personalized mitigation actions.
+        </p>
+      </section>
+
+      <section class="controls card">
+        <div>
+          <label for="profile-select">User profile</label>
+          <select id="profile-select"></select>
+        </div>
+        <div>
+          <label for="tick-range">Timeline step</label>
+          <input id="tick-range" type="range" min="0" max="0" step="1" value="0">
+        </div>
+        <div class="tick-meta">
+          <span id="tick-label">T+0</span>
+          <span id="event-label">Loading state...</span>
+        </div>
+      </section>
+
+      <section class="summary-grid">
+        <article class="metric card accent">
+          <span class="metric-label">Cyber Risk Score</span>
+          <strong id="risk-score">--</strong>
+          <span id="risk-trend" class="metric-note">--</span>
+        </article>
+        <article class="metric card">
+          <span class="metric-label">Current breach probability</span>
+          <strong id="breach-probability">--</strong>
+          <span class="metric-note">sigmoid(w · S_t)</span>
+        </article>
+        <article class="metric card">
+          <span class="metric-label">6-step cumulative risk</span>
+          <strong id="cumulative-risk">--</strong>
+          <span class="metric-note">1 - ∏(1 - P(breach_i))</span>
+        </article>
+      </section>
+
+      <section class="two-column">
+        <article class="card">
+          <h2>Scenario forecast</h2>
+          <div id="scenario-list" class="stack"></div>
+        </article>
+        <article class="card">
+          <h2>Adaptive interventions</h2>
+          <div id="recommendation-list" class="stack"></div>
+        </article>
+      </section>
+
+      <section class="two-column">
+        <article class="card">
+          <h2>Risk narrative</h2>
+          <p id="narrative" class="narrative"></p>
+        </article>
+        <article class="card">
+          <h2>Top feature attributions</h2>
+          <div id="explanation-list" class="stack compact"></div>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>Risk trajectory</h2>
+        <div id="history-chart" class="history-chart" aria-label="Risk trajectory chart"></div>
+        <div id="history-list" class="history-list"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+  </html>
