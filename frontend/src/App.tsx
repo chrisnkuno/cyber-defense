@@ -16,6 +16,14 @@ export default function App() {
   const [currentProfileId, setCurrentProfileId] = useState("");
   const [tick, setTick] = useState(0);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [isScanning, setIsScanning] = useState(false);
+
+  const fetchDashboard = () => {
+    if (!currentProfileId) return;
+    fetch(`/api/dashboard?profile=${encodeURIComponent(currentProfileId)}&tick=${tick}`)
+      .then((res) => res.json())
+      .then((data) => setDashboardData(data));
+  };
 
   useEffect(() => {
     fetch("/api/profiles")
@@ -29,15 +37,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!currentProfileId) return;
-    fetch(`/api/dashboard?profile=${encodeURIComponent(currentProfileId)}&tick=${tick}`)
-      .then((res) => res.json())
-      .then((data) => setDashboardData(data));
+    fetchDashboard();
   }, [currentProfileId, tick]);
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setCurrentProfileId(e.target.value);
     setTick(0);
+  };
+
+  const runScan = async () => {
+    setIsScanning(true);
+    try {
+      const res = await fetch(`/api/scan?profile_id=${currentProfileId}`, { method: "POST" });
+      const data = await res.json();
+      setTick(data.newTick);
+      fetchDashboard();
+    } catch (err) {
+      console.error("Scan failed", err);
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   if (!dashboardData) return <div>Loading...</div>;
@@ -46,11 +65,23 @@ export default function App() {
     <main className="shell">
       <section className="hero">
         <p className="eyebrow">Privacy-preserving adaptive cyber risk prototype</p>
-        <h1>Continuous user-state modeling for preventive security intervention.</h1>
-        <p className="lede">
-          A local research prototype that simulates evolving user security posture, projects breach likelihood,
-          and turns that forecast into interpretable, personalized mitigation actions.
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1>Continuous user-state modeling for preventive security intervention.</h1>
+            <p className="lede">
+              A local research prototype that simulates evolving user security posture, projects breach likelihood,
+              and turns that forecast into interpretable, personalized mitigation actions.
+            </p>
+          </div>
+          <button 
+            className="pill impact" 
+            style={{ border: 'none', cursor: 'pointer', padding: '12px 24px', fontSize: '1rem' }}
+            onClick={runScan}
+            disabled={isScanning}
+          >
+            {isScanning ? "Scanning..." : "Run Vulnerability Scan"}
+          </button>
+        </div>
       </section>
 
       <section className="controls card">
@@ -104,6 +135,22 @@ export default function App() {
 
       <section className="two-column">
         <article className="card">
+          <h2>Security Best Practices</h2>
+          <div className="stack">
+            {dashboardData.guidance?.map((item: any, idx: number) => (
+              <div className="item-row" key={idx}>
+                <div>
+                  <strong>{item.topic}</strong>
+                  <p>{item.advise}</p>
+                </div>
+                <span className={`pill ${item.urgency === 'Critical' || item.urgency === 'High' ? 'impact' : ''}`}>
+                  {item.urgency}
+                </span>
+              </div>
+            ))}
+          </div>
+        </article>
+        <article className="card">
           <h2>Scenario forecast</h2>
           <div className="stack">
             {dashboardData.scenarios?.map((scenario: any) => (
@@ -117,6 +164,9 @@ export default function App() {
             ))}
           </div>
         </article>
+      </section>
+
+      <section className="two-column">
         <article className="card">
           <h2>Adaptive interventions</h2>
           <div className="stack">
@@ -131,13 +181,13 @@ export default function App() {
             ))}
           </div>
         </article>
-      </section>
-
-      <section className="two-column">
         <article className="card">
           <h2>Risk narrative</h2>
           <p className="narrative">{dashboardData.narrative}</p>
         </article>
+      </section>
+
+      <section className="two-column">
         <article className="card">
           <h2>Top feature attributions</h2>
           <div className="stack compact">
@@ -157,10 +207,8 @@ export default function App() {
             ))}
           </div>
         </article>
-      </section>
-
-      <section className="card">
-        <h2>Risk trajectory</h2>
+        <article className="card">
+          <h2>Risk trajectory</h2>
         <div className="history-chart" aria-label="Risk trajectory chart">
           {dashboardData.history?.map((h: any) => {
             const maxScore = Math.max(...(dashboardData.history?.map((i: any) => i.riskScore) || [1]), 1);
@@ -192,6 +240,7 @@ export default function App() {
               </div>
             ))}
         </div>
+      </article>
       </section>
     </main>
   );

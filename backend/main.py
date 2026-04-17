@@ -1,17 +1,19 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
+from typing import Optional, List
 
 import models
 import schemas
 import engine
 import database
 import simulation
+import scanner
 
 database.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="Cyber Defense Monitor API")
+sec_scanner = scanner.SecurityScanner()
 
 app.add_middleware(
     CORSMiddleware,
@@ -73,6 +75,7 @@ def get_dashboard(
     cumulative_risk = engine.calculate_cumulative_risk(future_window)
     
     recommendations = engine.build_recommendations(current.state_json, current.scenarios_json)
+    guidance = get_security_guidance(current.state_json)
     
     narrative = engine.create_narrative(
         prof.name,
@@ -109,6 +112,7 @@ def get_dashboard(
         "trend": trend,
         "scenarios": current.scenarios_json,
         "recommendations": sorted(recommendations, key=lambda x: x["priorityScore"], reverse=True),
+        "guidance": guidance,
         "narrative": narrative,
         "explanations": current.explanations_json,
         "history": history,
@@ -159,6 +163,76 @@ def post_simulate_event(
     db.add(t)
     db.commit()
     return {"status": "ok", "newTick": new_tick_num}
+
+@app.post("/api/scan")
+def run_vulnerability_scan(
+    profile_id: str,
+    db: Session = Depends(database.get_db)
+):
+    prof = db.query(models.Profile).filter(models.Profile.id == profile_id).first()
+    if not prof:
+        raise HTTPException(status_code=404, detail="Profile not found")
+        
+    # Run absolute "real" scan
+    scan_results = sec_scanner.run_scan()
+    
+    # Map scan results to state transitions
+    # Example: many open ports -> increase networkExposure
+    # Example: world-accessible files -> increase dataExposure
+    
+    deltas = {
+        "networkExposure": 0.05 * len(scan_results["open_ports"]),
+        "dataExposure": 0.1 if scan_results["summary"]["critical_issues"] > 0 else -0.05,
+        "deviceHygiene": -0.1 if scan_results["summary"]["critical_issues"] > 2 else 0.05
+    }
+    
+    event = schemas.SimulateEventSchema(
+        type="vulnerability_scan",
+        label=f"System Vulnerability Scan: {scan_results['summary']['critical_issues']} issues found",
+        deltas=schemas.EventDeltas(**deltas)
+    )
+    
+    result = post_simulate_event(profile_id, event, db)
+    return {
+        **result,
+        "scan_results": scan_results
+    }
+
+def get_security_guidance(state: dict) -> List[dict]:
+    guidance = []
+    if state["passwordReuse"] > 0.6:
+        guidance.append({
+            "topic": "Identity",
+            "advise": "High password reuse detected. Immediate password rotation and use of a password manager is recommended.",
+            "urgency": "High"
+        })
+    if state["mfaCoverage"] < 0.5:
+        guidance.append({
+            "topic": "Access Control",
+            "advise": "Enable Multi-Factor Authentication (MFA) on all critical accounts to prevent account takeover.",
+            "urgency": "Critical"
+        })
+    if state["patchLatency"] > 0.5:
+        guidance.append({
+            "topic": "System Hardening",
+            "advise": "A backlog of patches was observed. Schedule an automated update cycle to reduce exploit surface.",
+            "urgency": "Medium"
+        })
+    if state["networkExposure"] > 0.7:
+        guidance.append({
+            "topic": "Network",
+            "advise": "Multiple open services detected. Review firewall rules and close unnecessary ports (e.g., Telnet, unencrypted HTTP).",
+            "urgency": "High"
+        })
+    
+    # Default guidance if all good
+    if not guidance:
+        guidance.append({
+            "topic": "General",
+            "advise": "Maintain regular backup validation and keep monitoring active for behavioral drift.",
+            "urgency": "Low"
+        })
+    return guidance
 
 if __name__ == "__main__":
     import uvicorn
