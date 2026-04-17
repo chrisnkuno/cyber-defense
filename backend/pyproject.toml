@@ -1,0 +1,14 @@
+[project]
+name = "cyber-defense-backend"
+version = "0.1.0"
+description = "Privacy-preserving dynamic cyber risk monitoring backend"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi[standard]",
+    "uvicorn[standard]",
+    "sqlalchemy",
+    "pydantic",
+]
+
+[tool.uv]
+dev-dependencies = []
