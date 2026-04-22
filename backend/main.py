@@ -1,7 +1,9 @@
-from fastapi import FastAPI, Depends, HTTPException
+import os
+from typing import List, Optional
+
+from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional, List
 
 import models
 import schemas
@@ -15,10 +17,18 @@ database.Base.metadata.create_all(bind=database.engine)
 app = FastAPI(title="Cyber Defense Monitor API")
 sec_scanner = scanner.SecurityScanner()
 
+
+def allowed_origins() -> List[str]:
+    raw_origins = os.getenv(
+        "CYBER_DEFENSE_ALLOWED_ORIGINS",
+        "http://127.0.0.1:5173,http://localhost:5173",
+    )
+    return [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins(),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -49,8 +59,8 @@ def get_profiles(db: Session = Depends(database.get_db)):
 
 @app.get("/api/dashboard")
 def get_dashboard(
-    profile: str,
-    tick: Optional[int] = None,
+    profile: str = Query(..., min_length=2, max_length=64),
+    tick: Optional[int] = Query(default=None, ge=0, le=365),
     db: Session = Depends(database.get_db)
 ):
     prof = db.query(models.Profile).filter(models.Profile.id == profile).first()
@@ -124,8 +134,8 @@ def get_dashboard(
 
 @app.post("/api/simulate")
 def post_simulate_event(
-    profile_id: str,
     event: schemas.SimulateEventSchema,
+    profile_id: str = Query(..., min_length=2, max_length=64),
     db: Session = Depends(database.get_db)
 ):
     prof = db.query(models.Profile).filter(models.Profile.id == profile_id).first()
@@ -137,7 +147,7 @@ def post_simulate_event(
         raise HTTPException(status_code=400, detail="Cannot append to empty profile")
         
     prev_state = last_tick.state_json
-    evt_dict = event.dict(exclude_unset=True)
+    evt_dict = event.model_dump(exclude_unset=True)
     
     # Process event
     new_state = engine.apply_event(prev_state, evt_dict)
@@ -166,7 +176,7 @@ def post_simulate_event(
 
 @app.post("/api/scan")
 def run_vulnerability_scan(
-    profile_id: str,
+    profile_id: str = Query(..., min_length=2, max_length=64),
     db: Session = Depends(database.get_db)
 ):
     prof = db.query(models.Profile).filter(models.Profile.id == profile_id).first()
@@ -181,9 +191,9 @@ def run_vulnerability_scan(
     # Example: world-accessible files -> increase dataExposure
     
     deltas = {
-        "networkExposure": 0.05 * len(scan_results["open_ports"]),
-        "dataExposure": 0.1 if scan_results["summary"]["critical_issues"] > 0 else -0.05,
-        "deviceHygiene": -0.1 if scan_results["summary"]["critical_issues"] > 2 else 0.05
+        "networkExposure": 0.08 * len(scan_results["risky_open_ports"]),
+        "dataExposure": 0.08 if scan_results["summary"]["high_risk_permission_findings"] > 0 else -0.03,
+        "deviceHygiene": -0.08 if scan_results["summary"]["critical_issues"] > 2 else 0.04
     }
     
     event = schemas.SimulateEventSchema(
@@ -192,7 +202,7 @@ def run_vulnerability_scan(
         deltas=schemas.EventDeltas(**deltas)
     )
     
-    result = post_simulate_event(profile_id, event, db)
+    result = post_simulate_event(event=event, profile_id=profile_id, db=db)
     return {
         **result,
         "scan_results": scan_results
